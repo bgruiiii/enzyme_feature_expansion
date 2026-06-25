@@ -3,10 +3,23 @@
 Large feature files are stored on HPC and are not committed to this GitHub
 repository.
 
-## Completed Training-UID M2 Output
+## Invalid Training-UID M2 Output
 
 ```text
 /public/home/acfbwjsi7s/lucapcycle_m2_features_2026-06-25_vector_only
+```
+
+Status:
+
+```text
+INVALID - do not use for training or analysis
+```
+
+Reason:
+
+```text
+The extraction did not follow LucaPCycle's official complete seq_matrix
+inference path. The saved vectors are numerically collapsed.
 ```
 
 Vector shards:
@@ -68,7 +81,7 @@ Planned HPC upload target if complete-pool extraction is approved:
 The complete 195,743-UID M2 extraction should be written to a new output
 directory so it is not mixed with the current 107,731 training-UID result.
 
-## Current Audit Status
+## Audit Status
 
 ```text
 FULL_VECTOR_OUTPUT_AUDIT_STATUS=PASS
@@ -79,3 +92,20 @@ total_rows_across_shards=107731
 row_count_distribution={731: 1, 1000: 107}
 failed_uids_rows=0
 ```
+
+The structural audit above only confirms files, shapes, and UID coverage. It
+does not validate feature usefulness.
+
+Diversity audit:
+
+```text
+VECTOR_DIVERSITY_AUDIT_STATUS=FAIL
+m2_mean mean_dim_std ~ 3.65e-07
+m2_max mean_dim_std ~ 4.20e-07
+m2_value_attention mean_dim_std ~ 3.70e-07
+m2_projected_256 mean_dim_std ~ 1.47e-07
+sample pairwise cosine almost all >= 0.9999
+```
+
+Therefore this HPC data location is preserved only for failure diagnosis and
+must not be used as valid LucaPCycle M2 features.

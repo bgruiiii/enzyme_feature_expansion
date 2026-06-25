@@ -2,6 +2,39 @@
 
 日期：2026-06-25
 
+## 0. 重要更正：本次结果已判定作废
+
+本报告原本记录了 LucaPCycle M2 训练 UID 版本的 vector-only 提取过程。后续补充的向量区分度审计显示，该结果虽然文件结构、UID 覆盖和 shape 审计通过，但向量数值几乎塌缩为常量，不能用于训练或下游分析。
+
+作废原因：
+
+```text
+本次提取没有完整遵循 LucaPCycle 官方 seq_matrix 推理路径，而是手动拆出 sequence branch：
+sequence -> BPE/subword tokens -> seq_encoder -> pooled vectors
+
+但所选 checkpoint 是 seq_matrix 模型，官方逻辑还包含 matrix/embedding 分支，并通过 Encoder / BatchConverter 组织输入。
+因此该 seq-only vector-only 提取路线与官方模型逻辑不一致。
+```
+
+失败证据：
+
+```text
+VECTOR_DIVERSITY_AUDIT_STATUS=FAIL
+m2_mean mean_dim_std ~ 3.65e-07
+m2_max mean_dim_std ~ 4.20e-07
+m2_value_attention mean_dim_std ~ 3.70e-07
+m2_projected_256 mean_dim_std ~ 1.47e-07
+sample pairwise cosine almost all >= 0.9999
+```
+
+结论：
+
+```text
+/public/home/acfbwjsi7s/lucapcycle_m2_features_2026-06-25_vector_only
+```
+
+该目录中的向量结果仅保留为失败记录和诊断依据，不能作为有效 M2 特征使用。下一轮必须严格按 LucaPCycle 官方推理和数据转换流程重跑，并在小样本阶段加入向量区分度审计。
+
 ## 1. 本次目的
 
 本次工作的目的是验证并完成 LucaPCycle 中 M2 酶序列特征的提取流程，先为后续 EnzymeCAGE 风格的酶检索模型融合训练准备一套可审计的固定长度 vector 特征。

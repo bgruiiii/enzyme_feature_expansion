@@ -3,10 +3,43 @@
 This folder contains the staged documentation for LucaPCycle M2 enzyme feature
 extraction.
 
+## Status: Invalid Result
+
+This result is **invalid** and must not be used for model training, feature
+fusion, or downstream analysis.
+
+What happened:
+
+```text
+The extraction route manually used only:
+sequence -> BPE/subword tokens -> seq_encoder -> pooled vectors
+
+But the selected LucaPCycle checkpoint is a seq_matrix checkpoint. Official
+LucaPCycle logic uses the full model pathway, including matrix/embedding inputs
+handled by Encoder and BatchConverter. The manual seq-only branch extraction
+therefore did not match the official inference path.
+```
+
+Failure evidence:
+
+```text
+VECTOR_DIVERSITY_AUDIT_STATUS=FAIL
+m2_mean mean_dim_std ~ 3.65e-07
+m2_max mean_dim_std ~ 4.20e-07
+m2_value_attention mean_dim_std ~ 3.70e-07
+m2_projected_256 mean_dim_std ~ 1.47e-07
+sample pairwise cosine almost all >= 0.9999
+```
+
+The files in this folder are retained only as an audit trail explaining why the
+first attempt failed. The next attempt must follow the official LucaPCycle
+inference/data-preparation logic and must include a diversity audit before any
+full-scale extraction.
+
 ## What Was Extracted
 
-M2 was extracted from protein sequences using LucaPCycle's BPE/subword tokenizer
-and trained Transformer `seq_encoder`.
+This failed attempt extracted vectors from protein sequences using LucaPCycle's
+BPE/subword tokenizer and the `seq_encoder` branch.
 
 Route:
 
@@ -18,9 +51,9 @@ amino-acid sequence
 -> pooled / projected vector features
 ```
 
-This branch does not load ESM, ESM-C, or ESM2. In the adapted EnzymeCAGE plan,
-the paper's M1 branch will be replaced by existing HPC-side ESM-C 600M /
-ESM600M features.
+This was the incorrect assumption for the selected `seq_matrix` checkpoint.
+Future runs must first reproduce the official LucaPCycle inference path and only
+then decide which intermediate representation can be safely exported.
 
 ## Scope
 
@@ -40,7 +73,7 @@ unique UniProt IDs extracted:
 The complete enzyme sequence pool has 195,743 unique UniProt IDs and has not
 yet been extracted in this branch.
 
-## Key Result
+## Invalid Result Location
 
 ```text
 output root:
@@ -52,9 +85,12 @@ shards:
 output size:
 899M
 
-audit:
+structural audit:
 FULL_VECTOR_OUTPUT_AUDIT_STATUS=PASS
 error_count=0
+
+diversity audit:
+VECTOR_DIVERSITY_AUDIT_STATUS=FAIL
 ```
 
 ## Folder Layout
