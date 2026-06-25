@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESM-C 600M 与 LucaPCycle M1 特征技术差异分析</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5f6f7a;
+      --line: #d7e0e7;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --accent: #0b6b7a;
+      --warn: #9a5b00;
+      --bad: #9a2c2c;
+      --good: #126b45;
+      --code: #eef3f6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, "Noto Sans SC", sans-serif;
+      line-height: 1.62;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    main {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 34px 0 56px;
+    }
+
+    header {
+      padding: 24px 0 22px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(26px, 4vw, 42px);
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 34px 0 14px;
+      font-size: 24px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 10px 0; }
+
+    a { color: var(--accent); }
+
+    .meta {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 20px 0 26px;
+    }
+
+    .box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .verdict {
+      border-left: 5px solid var(--bad);
+    }
+
+    .action {
+      border-left: 5px solid var(--accent);
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eaf5f7;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    .tag.bad { background: #f8eaea; color: var(--bad); }
+    .tag.warn { background: #fff4dd; color: var(--warn); }
+    .tag.good { background: #e7f5ed; color: var(--good); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      display: table;
+      margin: 14px 0 22px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 12px 13px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eaf0f4;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    code {
+      background: var(--code);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      background: #101820;
+      color: #e8f0f2;
+      padding: 14px 16px;
+      border-radius: 8px;
+      overflow: auto;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    ul, ol { padding-left: 22px; }
+
+    li { margin: 6px 0; }
+
+    .callout {
+      background: #fff9eb;
+      border: 1px solid #ead6a5;
+      border-left: 5px solid var(--warn);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 18px 0;
+    }
+
+    .ok {
+      background: #eef9f2;
+      border: 1px solid #bfe2cd;
+      border-left: 5px solid var(--good);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 18px 0;
+    }
+
+    .foot {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+
+    @media (max-width: 760px) {
+      main { width: min(100% - 24px, 1180px); }
+      .summary { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+      th, td { min-width: 180px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>ESM-C 600M 与 LucaPCycle M1 特征技术差异分析</h1>
+    <p class="meta">生成日期：2026-06-24。分析对象：EnzymeCAGE 本地 ESM-C 序列特征代码、LucaPCycle V3 源码、Nature Communications 论文方法部分。</p>
+  </header>
+
+  <section class="summary">
+    <div class="box verdict">
+      <h2>核心结论</h2>
+      <p><span class="tag bad">不等价</span>如果你的目标是复现论文中的 <code>M1</code>，现有 <code>ESM-C 600M</code> 特征不能直接当作 LucaPCycle 的 <code>M1</code> 使用。</p>
+      <p>原因不是保存格式或 pooling 细节，而是上游蛋白语言模型不同：我们本地用的是 <code>esmc_600m</code>，LucaPCycle M1 用的是 <code>esm2_t36_3B_UR50D</code>。</p>
+    </div>
+    <div class="box action">
+      <h2>实施建议</h2>
+      <p><span class="tag warn">建议分两步</span>第一步先实现并接入论文的 <code>M2</code>，因为这是我们当前没有的新特征类别。</p>
+      <p>第二步做消融：<code>GVP + ESM-C600M + M2</code> 作为低成本方案；若需要严格对齐 LucaPCycle，再补提 <code>ESM2-3B M1</code>。</p>
+    </div>
+  </section>
+
+  <h2>论文方法要点</h2>
+  <p>Nature 论文把 LucaPCycle 描述为双通道模型：输入序列同时做 character-level 和 word-level tokenization。character-level 通道使用 <code>ESM2-3B</code> 产生表示矩阵 <code>M1</code>，word-level 通道使用 BPE 分词后交给 Transformer-Encoder 产生 <code>M2</code>。Pooler 再用 Value-Level Attention Pooling 把矩阵降采样成向量，最后拼接两个 pooled 向量做分类。</p>
+  <p>论文还明确说明：第一个通道为 <code>ESM2-3B</code> contextual representation；第二个通道为 4 层、8 头 Transformer-Encoder。源码中的 V3 训练脚本与这点一致。</p>
+
+  <h2>本地 EnzymeCAGE ESM-C 600M 做了什么</h2>
+  <p>本地主要代码位于：</p>
+  <ul>
+    <li><code>custom/data_build/run_esmc_sequence_only.py</code></li>
+    <li><code>feature/main.py</code> 中的 <code>calc_seq_esm_C_feature</code></li>
+  </ul>
+  <p>关键实现：</p>
+  <pre><code>model = ESMC.from_pretrained("esmc_600m").to(device)
+protein = ESMProtein(sequence=seq)
+protein_tensor = model.encode(protein)
+logits_output = model.logits(
+    protein_tensor,
+    LogitsConfig(sequence=True, return_embeddings=True),
+)
+node_feature = logits_output.embeddings[0].cpu().numpy()
+seq_to_feature[seq] = node_feature.mean(axis=0)</code></pre>
+  <p>保存结果有两种粒度：</p>
+  <ul>
+    <li><code>node_level/{UniprotID}.npz</code>：每个残基一个向量，已知维度为 <code>seq_len x 1152</code>。</li>
+    <li><code>protein_level/seq2feature.pkl</code>：对全序列 residue matrix 做 mean pooling，得到 <code>1152</code> 维全局向量。</li>
+  </ul>
+
+  <h2>LucaPCycle M1 源码做了什么</h2>
+  <p>我没有在当前 Linux 工作区找到你说的 Windows 路径 <code>F:\CHR\LucaPCycle\LucaPCycle-3\LucaPCycle-3</code>，所以临时拉取了公开仓库 <code>https://github.com/LucaOne/LucaPCycle.git</code> 的 <code>V3</code> 分支，commit 为 <code>d1633791574661ef82486ccc192fe0d9aef00b3e</code>。</p>
+  <p>源码中 M1 的 embedding 生成在 <code>src/llm/esm/predict_embedding.py</code>，关键实现：</p>
+  <pre><code>elif version == "3B":
+    llm_name = "esm2_t36_3B_UR50D"
+    global_layer_size = 36
+    global_model, global_alphabet = pretrained.load_model_and_alphabet(
+        "esm2_t36_3B_UR50D"
+    )
+
+out = global_model(tokens, repr_layers=repr_layers, return_contacts=False)
+embedding = out["representations"][global_layer_size] \
+    .to(device="cpu")[0, 1: truncate_len + 1].clone().numpy()</code></pre>
+  <p>V3 训练脚本进一步确认：</p>
+  <pre><code>embedding_input_size=2560
+matrix_max_length=3072
+MATRIX_POOLING_TYPE="value_attention"
+llm_version="esm2"
+llm_type="esm"
+llm_step="3B"</code></pre>
+  <p>因此，LucaPCycle 的 <code>M1</code> 是 <code>ESM2-3B</code> 最后一层 residue representation matrix，训练时以 <code>2560</code> 维输入进入 matrix channel，并通过 <code>value_attention</code> pooling 降维后再与 <code>M2</code> pooled vector 拼接。</p>
+
+  <h2>逐项对比</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>维度</th>
+        <th>EnzymeCAGE 已提取 ESM-C</th>
+        <th>LucaPCycle M1</th>
+        <th>判断</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>模型家族</td>
+        <td><code>ESM-C</code>，通过 <code>esm.models.esmc.ESMC</code> 加载</td>
+        <td><code>ESM-2</code>，通过 <code>facebookresearch/esm</code> 的 <code>esm2_t36_3B_UR50D</code> 加载</td>
+        <td><span class="tag bad">不同</span>不是同一个预训练模型系列</td>
+      </tr>
+      <tr>
+        <td>模型规模</td>
+        <td><code>esmc_600m</code></td>
+        <td><code>ESM2-3B</code></td>
+        <td><span class="tag bad">不同</span>参数量和训练目标/架构版本不同</td>
+      </tr>
+      <tr>
+        <td>向量维度</td>
+        <td><code>1152</code></td>
+        <td><code>2560</code></td>
+        <td><span class="tag bad">不同</span>不能直接替换同一个投影层</td>
+      </tr>
+      <tr>
+        <td>输出粒度</td>
+        <td>保存 residue matrix，同时保存 mean pooled sequence vector</td>
+        <td>使用 residue matrix，训练中再做 Value-Level Attention Pooling</td>
+        <td><span class="tag warn">部分相同</span>都有 residue-level matrix，但 pooling 策略不同</td>
+      </tr>
+      <tr>
+        <td>特殊 token</td>
+        <td>ESM-C SDK 输出 <code>embeddings[0]</code>，本地代码直接保存，不显式处理 BOS/EOS</td>
+        <td>源码显式取 <code>[1: truncate_len + 1]</code>，去掉 BOS/EOS 后保留 residue 表示</td>
+        <td><span class="tag warn">需核验</span>如果复用 node feature，必须确认长度是否等于原序列长度</td>
+      </tr>
+      <tr>
+        <td>长序列策略</td>
+        <td>本地脚本逐条送入 ESM-C，异常则记录失败；没有实现分段拼接</td>
+        <td>支持 <code>embedding_complete</code> 与 overlap 分段补全，V3 脚本开启</td>
+        <td><span class="tag warn">不同</span>长蛋白覆盖策略不同</td>
+      </tr>
+      <tr>
+        <td>训练使用方式</td>
+        <td>Bio Vector 训练包中同时有 sequence mean 与 pocket-node ESM-C；之前主要按 <code>1152</code> 维 enzyme input 使用</td>
+        <td><code>seq_matrix</code> 双通道：M1 matrix channel + M2 raw sequence Transformer channel</td>
+        <td><span class="tag bad">不同</span>LucaPCycle M1 不是简单的 sequence mean vector</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>是否需要二次提取 M1</h2>
+  <div class="callout">
+    <p><strong>如果目标是严格复现或借鉴 LucaPCycle 的 M1：</strong>需要二次提取 <code>ESM2-3B</code> 的 residue matrix。现有 <code>ESM-C 600M</code> 不能当作等价 M1，因为维度、模型、训练接口、pooling 输入都不一致。</p>
+  </div>
+  <div class="ok">
+    <p><strong>如果目标是工程上快速扩充酶特征：</strong>可以暂时不重提 M1，先把现有 <code>ESM-C 600M</code> 作为“已有 PLM residue/sequence feature”，再新增 LucaPCycle 的 <code>M2</code> word-level Transformer 特征。这样能先回答新特征类别是否带来增益。</p>
+  </div>
+
+  <h2>我建议的实验路线</h2>
+  <ol>
+    <li><strong>先做 M2。</strong>实现 BPE word-level tokenizer，复用 LucaPCycle 的 subword vocab/codes 或在我们的酶序列上训练同规模 BPE，然后用 4 层 8 头 Transformer-Encoder 输出 M2 pooled vector。</li>
+    <li><strong>先跑低成本组合。</strong>训练 <code>GVP + ESM-C600M + M2</code>，与当前 <code>GVP + ESM-C600M</code> 比较。</li>
+    <li><strong>若 M2 有增益，再决定是否补 M1。</strong>补提 <code>ESM2-3B M1</code> 成本高，但可以做 <code>GVP + ESM2-3B-M1 + M2</code> 与 <code>GVP + ESM-C600M + M2</code> 的直接对照。</li>
+    <li><strong>不要把 ESM-C 600M 文件命名为 M1。</strong>建议在代码和结果表中明确叫 <code>ESMC600M</code> 或 <code>existing_plm</code>，避免后续论文/汇报时混淆。</li>
+  </ol>
+
+  <h2>实现时要注意的接口</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>问题</th>
+        <th>建议处理</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>维度不一致</td>
+        <td>ESM-C 是 <code>1152</code>，ESM2-3B 是 <code>2560</code>，新增投影层时要用独立 <code>input_dim</code>，不要共享旧 enzyme projector。</td>
+      </tr>
+      <tr>
+        <td>M1/M2 都是序列矩阵</td>
+        <td>如果沿用 LucaPCycle 思路，M1/M2 应先各自 pooling 成 vector，再与 GVP 表示融合；不要先粗暴 mean 后拼接，除非作为消融基线。</td>
+      </tr>
+      <tr>
+        <td>已有 ESM-C node feature</td>
+        <td>可复用 <code>node_level/{uid}.npz</code> 做 attention pooling 输入，而不是只用 <code>seq2feature.pkl</code> 的 mean vector。</td>
+      </tr>
+      <tr>
+        <td>M2 的 tokenizer</td>
+        <td>论文使用 Subword-NMT BPE。若想贴近 LucaPCycle，应使用其 <code>subword/extra_p/extra_p_50_codes_20000.txt</code> 和 <code>vocab/extra_p/extra_p_50_subword_vocab_20000.txt</code>，但这套 BPE 是 phosphorus-cycling 数据域，迁移到 EnzymeCAGE 全酶数据前需要做 OOV/覆盖率审计。</td>
+      </tr>
+      <tr>
+        <td>Windows 源码路径</td>
+        <td>当前环境无法访问 <code>F:\CHR\LucaPCycle\LucaPCycle-3\LucaPCycle-3</code>。本报告使用公开 GitHub V3 源码。如果你那份源码与公开仓库不同，应再做一次 diff 核对。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>证据索引</h2>
+  <ul>
+    <li>论文方法页：<a href="https://www.nature.com/articles/s41467-025-60142-4">Nature Communications, LucaPCycle</a>。方法部分说明 M1 使用 <code>ESM2-3B</code>，M2 使用 word-level Transformer-Encoder；Code availability 指向 LucaPCycle GitHub 和 Zenodo。</li>
+    <li>本地 ESM-C 代码：<code>custom/data_build/run_esmc_sequence_only.py</code> 第 17 到 34 行加载 <code>esmc_600m</code>，第 68 到 83 行保存 residue matrix 和 mean vector。</li>
+    <li>本地主流程：<code>feature/main.py</code> 第 69 到 123 行为 ESM-C 600M 提取；第 152 到 227 行保留了旧的 ESM2-650M 提取函数；第 576 到 624 行当前默认选择 <code>ESM-C_600M</code>。</li>
+    <li>LucaPCycle M1 源码：<code>/tmp/LucaPCycle-analysis/src/llm/esm/predict_embedding.py</code> 第 394 到 397 行加载 <code>esm2_t36_3B_UR50D</code>，第 438 到 445 行取最后层 residue representation。</li>
+    <li>LucaPCycle V3 训练脚本：<code>/tmp/LucaPCycle-analysis/src/training/V3/run_extra_p_2_class_subword_v3.sh</code> 第 34 到 54 行显示 word-level 设置、<code>embedding_input_size=2560</code>、<code>llm_step=3B</code>；第 126 到 143 行传入这些训练参数。</li>
+    <li>LucaPCycle 模型融合：<code>/tmp/LucaPCycle-analysis/src/lucaprot/models/lucaprot.py</code> 第 125 到 143 行建立 sequence channel，第 501 到 538 行对 matrix channel 做 pooling 和 linear projection。</li>
+  </ul>
+
+  <h2>一句话决策</h2>
+  <p><strong>不要把已提取的 ESM-C 600M 视为 LucaPCycle M1 的等价替代。</strong>但在当前项目里，它仍然是有价值的 PLM 序列特征。为了控制算力成本，最合理的下一步是新增并评估 <code>M2</code>，再用消融结果决定是否补提 <code>ESM2-3B M1</code>。</p>
+
+  <p class="foot">注：本报告没有修改任何训练代码。公开 LucaPCycle 源码克隆目录为临时分析目录 <code>/tmp/LucaPCycle-analysis</code>。</p>
+</main>
+</body>
+</html>
