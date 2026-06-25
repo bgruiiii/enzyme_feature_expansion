@@ -1,0 +1,10 @@
+# Keep large generated artifacts out of this documentation repository.
+*.npz
+*.npy
+*.pt
+*.pth
+*.bin
+*.tar
+*.tar.gz
+*.zip
+__pycache__/

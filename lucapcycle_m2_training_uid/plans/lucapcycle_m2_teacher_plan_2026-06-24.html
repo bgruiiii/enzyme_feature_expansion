@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LucaPCycle M2 特征提取方案</title>
+  <style>
+    :root {
+      --ink: #1f2933;
+      --muted: #5b6775;
+      --line: #d8dee6;
+      --paper: #ffffff;
+      --wash: #f5f7fa;
+      --brand: #1f6f8b;
+      --brand-dark: #154c63;
+      --accent: #b85c38;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 32px 18px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.65;
+      color: var(--ink);
+      background: #eef2f5;
+    }
+
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      background: var(--paper);
+      border: 1px solid var(--line);
+    }
+
+    header {
+      padding: 34px 40px 28px;
+      color: #ffffff;
+      background: var(--brand-dark);
+    }
+
+    header h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    header p {
+      margin: 0;
+      color: #d9e8ee;
+      font-size: 15px;
+    }
+
+    section {
+      padding: 26px 40px;
+      border-top: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+      color: var(--brand-dark);
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 16px;
+      color: var(--ink);
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 8px 0;
+    }
+
+    .lead {
+      font-size: 16px;
+      color: var(--ink);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .callout {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: #fff7f2;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      border: 1px solid var(--line);
+    }
+
+    th {
+      color: #ffffff;
+      background: var(--brand);
+      font-weight: 600;
+    }
+
+    code {
+      padding: 1px 5px;
+      border: 1px solid #d4dbe3;
+      border-radius: 4px;
+      background: #f7f9fb;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.93em;
+    }
+
+    pre {
+      margin: 14px 0;
+      padding: 14px 16px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      background: var(--wash);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    ul,
+    ol {
+      padding-left: 22px;
+      margin: 10px 0;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .box {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      background: var(--wash);
+    }
+
+    a {
+      color: var(--brand-dark);
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 18px 10px;
+      }
+
+      header,
+      section {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>LucaPCycle M2 酶序列特征提取方案</h1>
+    <p>日期：2026-06-24 | 当前目标：先提取酶的 word-level M2 特征，后续与 GVP、ESM-C 600M/ESM-pocket 一起训练新的酶检索模型。</p>
+  </header>
+
+  <section>
+    <h2>1. 方案目的</h2>
+    <p class="lead">
+      我们计划在原 EnzymeCAGE 酶检索模型已有的结构特征和序列特征之外，新增 LucaPCycle 论文中的 M2 表征。
+      M2 来自氨基酸序列的字词级切分和 Transformer 编码，可以作为一种独立的酶序列语义特征。
+    </p>
+    <div class="callout">
+      本阶段只做 M2 特征提取和质控，不直接开展最终训练。等 M2 在 HPC 上完整提取并和 UniProtID 对齐后，再进入新一轮 EnzymeCAGE-style 检索模型训练。
+    </div>
+  </section>
+
+  <section>
+    <h2>2. M1 与 M2 的区别</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>名称</th>
+        <th>输入粒度</th>
+        <th>论文原始来源</th>
+        <th>我们项目中的处理</th>
+        <th>当前分工</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><strong>M1</strong></td>
+        <td>character-level，即单个氨基酸字符</td>
+        <td>ESM2-3B 蛋白语言模型</td>
+        <td>不采用 3B 模型，直接用项目早期已经在 HPC 提取好的 ESM600M/ESM-C 600M 序列特征替代</td>
+        <td>已有数据，不在本阶段重新提取</td>
+      </tr>
+      <tr>
+        <td><strong>M2</strong></td>
+        <td>word-level，即 BPE/subword 字词级片段</td>
+        <td>LucaPCycle 训练好的 Transformer-Encoder 分支</td>
+        <td>沿用 LucaPCycle 的 BPE 词表、BPE codes 和训练好的 M2 encoder checkpoint</td>
+        <td>当前由我们负责</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      论文 Methods 中说明：Tokenizer 会同时进行 character-level 和 word-level tokenization；
+      Encoder 中一路用 ESM2-3B 得到 M1，另一路用 Transformer-Encoder 从 word-level list 得到 M2。
+      因此 M2 不是 ESM 特征，也不是我们已有的 ESM-C 600M 特征。
+    </p>
+    <div class="callout">
+      与论文不同的一点：论文的 M1 使用 ESM2-3B；我们项目中用早期已经提取并存放在 HPC 的 ESM600M/ESM-C 600M 序列特征来替代。
+      因此当前不需要重新提取 M1，只需要完成 M2 提取并和 HPC 现有特征按 UniProtID 对齐。
+    </div>
+  </section>
+
+  <section>
+    <h2>3. 提取对象与最终产物</h2>
+    <div class="grid">
+      <div class="box">
+        <h3>优先提取对象</h3>
+        <p>先对当前干净训练包中的酶序列提取：</p>
+        <ul>
+          <li>训练表：<code>reaction_enzyme_pairs.csv</code></li>
+          <li>训练行数：145,607</li>
+          <li>唯一 UniProtID：107,731</li>
+          <li>序列列：<code>sequence</code></li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>已有 M1 替代数据</h3>
+        <p>ESM600M/ESM-C 600M 序列特征已经在 HPC 上完成，用作论文 M1 的项目替代项：</p>
+        <ul>
+          <li>历史覆盖：107,731 个训练 UniProtID</li>
+          <li>包含 sequence-level ESM-C 输出</li>
+          <li>本阶段只需将新提取的 M2 与这些已有特征对齐</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>可选扩展对象</h3>
+        <p>后续可扩展到 Rhea 全酶表：</p>
+        <ul>
+          <li>文件：<code>all_enzymes.csv</code></li>
+          <li>酶数量：195,743</li>
+          <li>列：<code>UniprotID, sequence</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>计划保存的特征</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>特征名</th>
+        <th>形状</th>
+        <th>用途</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>m2_token_matrix_fp16</code></td>
+        <td><code>(BPE token 数, 1024)</code></td>
+        <td>最接近论文中 M2 的 token-level 表征矩阵，体积较大，作为可选审计产物</td>
+      </tr>
+      <tr>
+        <td><code>m2_mean</code></td>
+        <td><code>(1024,)</code></td>
+        <td>对 M2 token 矩阵按 attention mask 做平均池化，作为训练主特征之一</td>
+      </tr>
+      <tr>
+        <td><code>m2_max</code></td>
+        <td><code>(1024,)</code></td>
+        <td>对 M2 token 矩阵做 mask-aware 最大池化，补充局部强信号</td>
+      </tr>
+      <tr>
+        <td><code>m2_value_attention</code></td>
+        <td><code>(1024,)</code></td>
+        <td>使用 LucaPCycle 原模型的 value_attention 池化结果</td>
+      </tr>
+      <tr>
+        <td><code>m2_projected_256</code></td>
+        <td><code>(256,)</code></td>
+        <td>经过 LucaPCycle <code>seq_linear</code> 后的低维向量，可作为轻量融合候选</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. 技术路线</h2>
+    <pre><code>氨基酸序列
+  -> 使用 LucaPCycle 的 BPE codes 做 word-level 切分
+  -> 使用 LucaPCycle tokenizer 转成 input_ids 和 attention_mask
+  -> 加载 LucaPCycle V3 训练好的 checkpoint
+  -> 调用模型内部 seq_encoder，即 Transformer-Encoder 分支
+  -> 取 seq_outputs[0] 作为 M2 token 矩阵
+  -> 池化得到 m2_mean / m2_max / m2_value_attention / m2_projected_256
+  -> 按 UniProtID 分片保存，供后续 EnzymeCAGE 训练读取</code></pre>
+
+    <p>
+      这里必须加载 checkpoint。原因是 BPE 只负责把氨基酸序列切成 token；
+      真正把 token 编码成 M2 向量的是 Transformer-Encoder 的参数，这些参数来自 LucaPCycle 训练好的权重。
+      没有 checkpoint，就只能得到 token ID，得不到论文意义上的 M2 表征。
+    </p>
+  </section>
+
+  <section>
+    <h2>5. 代码依据</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>环节</th>
+        <th>本地源码位置</th>
+        <th>作用</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>BPE 切词</td>
+        <td><code>src/inference.py</code>, <code>src/batch_converter.py</code></td>
+        <td>使用 <code>BPE(bpe_codes, merges=-1, separator='')</code> 对序列做 subword 切分</td>
+      </tr>
+      <tr>
+        <td>BPE codes</td>
+        <td><code>subword/extra_p/extra_p_50_codes_20000.txt</code></td>
+        <td>LucaPCycle V3 使用的字词级合并规则</td>
+      </tr>
+      <tr>
+        <td>BPE vocab</td>
+        <td><code>vocab/extra_p/extra_p_50_subword_vocab_20000.txt</code></td>
+        <td>word-level token 到 ID 的词表</td>
+      </tr>
+      <tr>
+        <td>模型类</td>
+        <td><code>src/lucaprot/models/lucaprot.py</code></td>
+        <td>定义 LucaProt 双通道模型</td>
+      </tr>
+      <tr>
+        <td>M2 编码器</td>
+        <td><code>self.seq_encoder = BertModel(...)</code></td>
+        <td>LucaPCycle 内部训练的 Transformer-Encoder 分支</td>
+      </tr>
+      <tr>
+        <td>M2 矩阵</td>
+        <td><code>seq_outputs = self.seq_encoder(...)</code> 后的 <code>seq_outputs[0]</code></td>
+        <td>每个 BPE token 的 1024 维上下文表示</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <p class="muted">
+      现成的 <code>prediction_v2.py</code> 主要用于分类预测结果输出，不是专门导出 M2。
+      因此我们会写一个小的自定义提取脚本，复用 LucaPCycle 的 tokenizer、checkpoint 和 <code>seq_encoder</code>。
+    </p>
+  </section>
+
+  <section>
+    <h2>6. 已准备的本地资源</h2>
+    <ul>
+      <li>LucaPCycle V3 代码：<code>F:\CHR\LucaPCycle\LucaPCycle-3\LucaPCycle-3</code></li>
+      <li>WSL 路径：<code>/mnt/f/CHR/LucaPCycle/LucaPCycle-3/LucaPCycle-3</code></li>
+      <li>checkpoint 压缩包：<code>F:\CHR\LucaPCycle\TrainedCheckPoint (1).tar.gz</code></li>
+      <li>本地 MD5：<code>8ce38bf2b789d83d4740528ac7d23b81</code></li>
+      <li>二分类 V3 checkpoint：
+        <code>models/extra_p_2_class_v3/protein/binary_class/lucaprot/seq_matrix/20240924203640/checkpoint-264284/</code>
+      </li>
+      <li>关键文件已确认：<code>config.json</code>, <code>pytorch_model.bin</code>, <code>training_args.bin</code>, <code>tokenizer/vocab.txt</code></li>
+    </ul>
+    <p>
+      二分类 V3 checkpoint 的配置显示：<code>hidden_size=1024</code>、
+      <code>num_hidden_layers=4</code>、<code>num_attention_heads=8</code>、
+      <code>seq_pooling_type=value_attention</code>、<code>seq_fc_size=[256]</code>。
+    </p>
+  </section>
+
+  <section>
+    <h2>7. HPC 执行计划</h2>
+    <ol>
+      <li>把 LucaPCycle V3 代码和 <code>TrainedCheckPoint (1).tar.gz</code> 上传到 HPC，优先上传压缩包并在 HPC 端解压，便于校验完整性。</li>
+      <li>在 HPC 端记录 <code>md5sum</code>，检查 <code>subword/</code>、<code>vocab/</code>、<code>models/</code> 和关键 checkpoint 文件是否齐全。</li>
+      <li>使用已建立的环境：<code>/public/home/acfbwjsi7s/envs/lucapcycle_m2</code>，在计算节点加载 <code>compiler/rocm/dtk-23.10</code> 后运行。</li>
+      <li>先抽取 10 个 UniProtID 做样例，验证 checkpoint 能加载、输出维度为 1024、无 NaN/Inf、UID 与序列 hash 能对齐。</li>
+      <li>样例通过后，对 107,731 个训练 UniProtID 分片提取 M2，输出 shard manifest 和 failed UID 表。</li>
+      <li>最后检查 145,607 条训练样本能否全部按 UniProtID 映射到 M2 特征。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>8. 质控标准</h2>
+    <ul>
+      <li>输入 UID 数、成功 UID 数、失败 UID 数都有记录。</li>
+      <li>每个输出保存 <code>UniprotID</code>、<code>sequence_sha256</code>、<code>sequence_length</code>、<code>bpe_token_count</code>。</li>
+      <li><code>m2_mean</code>、<code>m2_max</code>、<code>m2_value_attention</code> 的维度应为 1024。</li>
+      <li><code>m2_projected_256</code> 的维度应为 256。</li>
+      <li>所有向量检查无 NaN/Inf。</li>
+      <li>池化时使用 attention mask，避免 padding token 污染结果。</li>
+      <li>所有分片输出都写入 manifest，便于训练阶段按 UID 追踪。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>9. 与后续模型训练的关系</h2>
+    <p>
+      M2 提取完成后，会作为新增酶侧特征流，与原有 GVP 结构/口袋特征、HPC 现有 ESM600M/ESM-C 600M/ESM-pocket 序列特征一起进入新的 EnzymeCAGE-style 酶检索模型训练。
+      由于输入特征维度和模态增加，后续训练阶段需要相应调整特征融合层、投影维度、batch size、学习率和消融实验设计。
+    </p>
+    <p>
+      这里需要特别说明：我们不是完全照搬 LucaPCycle 的双通道模型做训练，而是借用其 M2 特征提取思路。
+      后续检索模型仍采用我们原 EnzymeCAGE 的训练框架，只是在酶侧特征中新增 M2，并把论文 M1 位置替换为已经在 HPC 上存在的 ESM600M/ESM-C 600M 序列特征。
+    </p>
+    <p>
+      微生物分支暂时不进入本阶段。大计划中，后续会在酶检索之后加入微生物对底物代谢偏好的检索打分，并把降解通路预测作为前置模块。
+    </p>
+  </section>
+
+  <section>
+    <h2>10. 参考资料</h2>
+    <ul>
+      <li>LucaPCycle 论文：<a href="https://www.nature.com/articles/s41467-025-60142-4">Nature Communications, 2025</a></li>
+      <li>LucaPCycle V3 代码：<a href="https://github.com/LucaOne/LucaPCycle/tree/V3">GitHub LucaOne/LucaPCycle V3</a></li>
+      <li>工程版详细计划：<code>/home/a/EnzymeCAGE/custom/docs/enzyme_feature_expansion/LUCAPCYCLE_M2_FEATURE_EXTRACTION_PLAN_2026-06-24.md</code></li>
+      <li>HPC 环境记录：<code>/home/a/EnzymeCAGE/custom/docs/enzyme_feature_expansion/lucapcycle_m2_env_setup_20260624_183306.md</code></li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
